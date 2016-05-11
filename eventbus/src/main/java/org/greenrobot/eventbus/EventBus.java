@@ -325,11 +325,11 @@ public class EventBus {
     /**
      * call the register service by the event bus.
      */
-    public void call(Context context, String url, JsonObject jsonObject, OnMethodCallBack callBack) {
+    public void call(Context context, EUrl url, JsonObject jsonObject, OnMethodCallBack callBack) {
         try {
-            if (url != null && url.contains("/") && url.split("/").length == 2) {
-                Service service = findServiceByUrl(url.split("/")[0]);
-                Method method = findMethodById(service, url.split("/")[1]);
+            if (url != null) {
+                Service service = findServiceByUrl(url.getUrl());
+                Method method = findMethodById(service, url.getId());
                 if (method != null) {
                     String mName = method.getName();
                     Class<?> clazz = service.getClazz();
@@ -347,16 +347,16 @@ public class EventBus {
         }
     }
 
-    public void call(Context context, String url, JsonObject params) {
+    public void call(Context context, EUrl url, JsonObject params) {
         this.call(context, url, params, null);
     }
 
 
-    public void open(Context context, String url, JsonObject jsonObject) {
+    public void open(Context context, EUrl url, JsonObject jsonObject) {
         try {
-            if (url != null && url.contains("/") && url.split("/").length == 2) {
-                Service service = findServiceByUrl(url.split("/")[0]);
-                Page page = findPageById(service, url.split("/")[1]);
+            if (url != null) {
+                Service service = findServiceByUrl(url.getUrl());
+                Page page = findPageById(service, url.getId());
                 if (page != null) {
                     Intent intent = new Intent(context, service.getClazz());
                     Bundle bundle = getBundleByPage(page, jsonObject);

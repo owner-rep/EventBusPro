@@ -54,7 +54,7 @@ public class Plug {
 JsonObject params = new JsonObject();
 params.addProperty("id", "123");
 params.addProperty("type", 456);
-EventBus.getDefault().call(this, "method/login", params, new OnMethodCallBack() {
+EventBus.getDefault().call(this, new EUrl("method", "login"), params, new OnMethodCallBack() {
     @Override
     public void onSuccess(JsonObject msg) {
         Log.d("onSuccess", msg.toString());
@@ -72,5 +72,5 @@ EventBus.getDefault().call(this, "method/login", params, new OnMethodCallBack() 
 JsonObject params = new JsonObject();
 params.addProperty("url", "http://blog.uddream.cn");
 params.addProperty("content", "hello blog by uddream");
-EventBus.getDefault().open(this, "page/share", params);
+EventBus.getDefault().open(this, new EUrl("page", "share"), params);
 ```
