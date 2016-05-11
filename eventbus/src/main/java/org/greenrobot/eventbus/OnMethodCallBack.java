@@ -8,5 +8,5 @@ import com.google.gson.JsonObject;
 public interface OnMethodCallBack {
     void onSuccess(JsonObject msg);
 
-    void onFaile(JsonObject msg, Exception e);
+    void onFailure(JsonObject msg, Exception e);
 }

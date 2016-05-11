@@ -30,8 +30,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onDestroy();
     }
 
-    @Subscribe(url = "test", priority = 1, threadMode = ThreadMode.BACKGROUND)
     @SuppressWarnings("unused")
+    @Subscribe(url = "test", priority = 1, threadMode = ThreadMode.BACKGROUND)
     public void onReceive(JsonObject receiver) {
         Log.e("onReceive", receiver.toString());
     }
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
 
                     @Override
-                    public void onFaile(JsonObject msg, Exception e) {
+                    public void onFailure(JsonObject msg, Exception e) {
 
                     }
                 });
