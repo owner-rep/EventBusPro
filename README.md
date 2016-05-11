@@ -3,21 +3,21 @@
 ```
 <?xml version="1.0" encoding="utf-8"?>
 <service-list>
-    <service url="method" class="org.greenrobot.eventbus.example.Plug">
+    <service url="method" class="com.uddream.glen.test.Plug">
         <method id="login" name="startLogin">
             <data id="id" key="userId" type="java.lang.String" />
             <data id="type" key="loginType" type="java.lang.Integer" />
         </method>
     </service>
 
-    <service url="page" class="org.greenrobot.eventbus.example.TestActivity">
+    <service url="page" class="com.uddream.glen.test.TestActivity">
         <page id="share" requestCode="123">
-            <bundle id="1" key="url" type="java.lang.String" />
-            <bundle id="2" key="content" type="java.lang.Integer" />
+            <bundle id="url" key="url2" type="java.lang.String" />
+            <bundle id="content" key="content2" type="java.lang.String" />
         </page>
         <page id="share_to_wx" requestCode="123">
             <bundle id="url" key="url" type="java.lang.String" />
-            <bundle id="content" key="content" type="java.lang.String" />
+            <bundle id="content" key="content" type="java.lang.Integer" />
         </page>
     </service>
 </service-list>
@@ -30,7 +30,6 @@ EventBus.getDefault().register(this, R.xml.service);
 ### 服务实现方式
 ```
 public class Plug {
-
     /**
      * @param context  第一个参数必须为context
      * @param callBack 第二个参数必须为callback
@@ -38,10 +37,13 @@ public class Plug {
      * @param type
      */
     @SuppressWarnings("unused")
-    public static void startLogin(Context context, OnInternalCallBack callBack, @Params("userId") String id, @Params("loginType") Integer type) {
+    public static void startLogin(Context context, OnMethodCallBack callBack, @Params("userId") String id, @Params("loginType") Integer type) {
         Log.d("success", id + type);
         if (callBack != null) {
-            callBack.onSuccess(id + type);
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("id", id);
+            jsonObject.addProperty("type", type);
+            callBack.onSuccess(jsonObject);
         }
     }
 }
@@ -49,10 +51,26 @@ public class Plug {
 
 ### 调用服务，执行方法
 ```
-EventBus.getDefault().call(this, "method/login", "{'id':'11111', 'type':2222}", null);
+JsonObject params = new JsonObject();
+params.addProperty("id", "123");
+params.addProperty("type", 456);
+EventBus.getDefault().call(this, "method/login", params, new OnMethodCallBack() {
+    @Override
+    public void onSuccess(JsonObject msg) {
+        Log.d("onSuccess", msg.toString());
+    }
+
+    @Override
+    public void onFailure(JsonObject msg, Exception e) {
+
+    }
+});
 ```
 
 ### 调用服务打开页面
 ```
-EventBus.getDefault().open(this, "page/share", "{'url':'11111', 'content':2222}");
+JsonObject params = new JsonObject();
+params.addProperty("url", "http://blog.uddream.cn");
+params.addProperty("content", "hello blog by uddream");
+EventBus.getDefault().open(this, "page/share", params);
 ```
