@@ -1,6 +1,7 @@
 package com.uddream.glen.test;
 
 import android.os.Bundle;
+import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -31,17 +32,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onDestroy();
     }
 
-    @SuppressWarnings("unused")
     @Subscribe(url = "test", priority = 1, threadMode = ThreadMode.BACKGROUND)
     public void onReceive(JsonObject receiver) {
-        Log.e("onReceive", receiver.toString());
+        Log.e("onReceive", receiver.toString() + "ui thread: " + (Looper.getMainLooper() == Looper.myLooper()));
     }
 
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.post:
-                EventBus.getDefault().post("test", new JsonObject());
+                if (EventBus.getDefault().hasSubscriberForEvent("test")) {
+                    EventBus.getDefault().post("test", new JsonObject());
+                }
                 break;
             case R.id.open: {
                 JsonObject params = new JsonObject();
@@ -54,10 +56,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 JsonObject params = new JsonObject();
                 params.addProperty("id", "123");
                 params.addProperty("type", 456);
-                EventBus.getDefault().call(this, new EUrl("method", "login"), params, new OnMethodCallBack() {
+                EventBus.getDefault().call(new EUrl("method", "login"), params, new OnMethodCallBack() {
                     @Override
                     public void onSuccess(JsonObject msg) {
-                        Log.d("onSuccess", msg.toString());
+                        Log.e("onSuccess", msg.toString());
                     }
 
                     @Override

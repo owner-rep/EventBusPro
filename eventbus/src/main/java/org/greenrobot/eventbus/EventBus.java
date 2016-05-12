@@ -25,6 +25,7 @@ import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 import org.greenrobot.eventbus.annotation.Params;
@@ -32,9 +33,11 @@ import org.greenrobot.eventbus.annotation.Subscribe;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -147,6 +150,7 @@ public class EventBus {
     }
 
     /**
+     * <p/>
      * register system service
      *
      * @param context
@@ -166,51 +170,88 @@ public class EventBus {
                 switch (event) {
                     case XmlPullParser.START_TAG://判断当前事件是否是标签元素开始事件
                         if (parser.getName().equalsIgnoreCase("service")) {
-                            service = new Service(parser.getAttributeValue(null, "url"),
+                            service = new Service(
+                                    parser.getAttributeValue(null, "url"),
                                     Class.forName(parser.getAttributeValue(null, "class")));
+                            if (service.getUrl() == null)
+                                throw new EventBusException("Service[" + service + "] url not null");
                         } else if (parser.getName().equalsIgnoreCase("method")) {
-                            method = new Method(parser.getAttributeValue(null, "id"),
+                            method = new Method(
+                                    parser.getAttributeValue(null, "id"),
                                     parser.getAttributeValue(null, "name"));
+                            if (method.getId() == null || method.getName() == null)
+                                throw new EventBusException("Service.Method[" + method + "] id or name not null");
+                            if (!isExistPublicStaticMethod(service.getClazz(), method.getName())) {
+                                throw new EventBusException("Service.Method[" + method + "] not find public static method, the method name is " + method.getName());
+                            }
                         } else if (parser.getName().equalsIgnoreCase("data")) {
-                            data = new Method.Data(parser.getAttributeValue(null, "id"),
+                            data = new Method.Data(
+                                    parser.getAttributeValue(null, "id"),
                                     parser.getAttributeValue(null, "key"),
-                                    Class.forName(parser.getAttributeValue(null, "type")));
+                                    (Class<? extends Serializable>) Class.forName(parser.getAttributeValue(null, "type")),
+                                    parser.getAttributeBooleanValue(null, "isNull", true));
+                            if (data.getId() == null || data.getKey() == null)
+                                throw new EventBusException("Service.Method.Data[" + data + "] id or key not null");
                         } else if (parser.getName().equalsIgnoreCase("page")) {
-                            page = new Page(parser.getAttributeValue(null, "id"),
+                            page = new Page(
+                                    parser.getAttributeValue(null, "id"),
                                     parser.getAttributeIntValue(null, "requestCode", -1));
+                            if (page.getId() == null)
+                                throw new EventBusException("Service.Page[" + page + "] id  not null");
                         } else if (parser.getName().equalsIgnoreCase("bundle")) {
                             bundle = new Page.Bundle(parser.getAttributeValue(null, "id"),
                                     parser.getAttributeValue(null, "key"),
-                                    (Class<? extends Serializable>) Class.forName(parser.getAttributeValue(null, "type")));
+                                    (Class<? extends Serializable>) Class.forName(parser.getAttributeValue(null, "type")),
+                                    parser.getAttributeBooleanValue(null, "isNull", true));
+                            if (bundle.getId() == null || bundle.getKey() == null)
+                                throw new EventBusException("Service.Page.Bundle[" + bundle + "] id or key not null");
                         }
                         break;
                     case XmlPullParser.END_TAG://判断当前事件是否是标签元素结束事件
                         if (parser.getName().equalsIgnoreCase("service")) {
+                            if (serviceList.contains(service)) break;
+
                             if (findServiceByUrl(service.getUrl()) == null) {
                                 serviceList.add(service);
                                 service = null;
                             } else {
-                                throw new Exception("[" + service.getUrl() + "] already register service [" + service + "]");
+                                throw new EventBusException("Service[" + service + "] the url is already registered");
                             }
                         } else if (parser.getName().equalsIgnoreCase("method")) {
+                            if (service.getMethods().contains(method)) break;
+
                             if (findMethodById(service, method.getId()) == null) {
                                 service.getMethods().add(method);
                                 method = null;
                             } else {
-                                throw new Exception("[" + method.getId() + "] already register method [" + method + "]");
+                                throw new EventBusException("Service.Method[" + method + "] the id already registered");
                             }
                         } else if (parser.getName().equalsIgnoreCase("data")) {
-                            method.getDatas().add(data);
+                            for (Method.Data item : method.getDataList()) {
+                                if (item.getKey().equals(data.getKey()) || item.getId().equals(data.getId())) {
+                                    throw new EventBusException("Service.Method.Data[" + data + "] the id or key already registered");
+                                }
+                            }
+
+                            method.getDataList().add(data);
                             data = null;
                         } else if (parser.getName().equalsIgnoreCase("page")) {
+                            if (service.getPages().contains(page)) break;
+
                             if (findPageById(service, page.getId()) == null) {
                                 service.getPages().add(page);
                                 page = null;
                             } else {
-                                throw new Exception("[" + method.getId() + "] already register page [" + page + "]");
+                                throw new EventBusException("Service.Page[" + page + "] the id already registered");
                             }
                         } else if (parser.getName().equalsIgnoreCase("bundle")) {
-                            page.getBundles().add(bundle);
+                            for (Page.Bundle item : page.getBundleList()) {
+                                if (item.getKey().equals(bundle.getKey()) || item.getId().equals(bundle.getId())) {
+                                    throw new EventBusException("Service.Page.Bundle[" + bundle + "] the id or key already registered");
+                                }
+                            }
+
+                            page.getBundleList().add(bundle);
                             bundle = null;
                         }
                         break;
@@ -220,12 +261,34 @@ public class EventBus {
         } catch (XmlPullParserException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
+            throw new EventBusException(e);
+        } catch (IOException e) {
             e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            Log.i(TAG, "Length:" + serviceList.size() + " Service：" + serviceList.toString());
         }
+        Log.d(TAG, "Length:" + serviceList.size() + " Service：" + serviceList.toString());
+    }
+
+    private boolean isExistPublicStaticMethod(Class<?> clazz, String name) throws EventBusException {
+        if (clazz != null && !clazz.isAnnotationPresent(org.greenrobot.eventbus.annotation.Service.class)) {
+            throw new EventBusException("Class[" + clazz.getName() + "] not add Service Annotation");
+        }
+        try {
+            while (clazz != null) {
+                java.lang.reflect.Method[] methods = clazz.getDeclaredMethods();
+                for (java.lang.reflect.Method item : methods) {
+                    if (name.equals(item.getName())) {
+                        int modifiers = item.getModifiers();
+                        if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & Modifier.STATIC) != 0) {
+                            return true;
+                        }
+                    }
+                }
+                clazz = clazz.getSuperclass();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, e.getMessage());
+        }
+        return false;
     }
 
     // Must be called in synchronized block
@@ -327,24 +390,71 @@ public class EventBus {
      */
     public void call(Context context, EUrl url, JsonObject jsonObject, OnMethodCallBack callBack) {
         try {
-            if (url != null) {
-                Service service = findServiceByUrl(url.getUrl());
-                Method method = findMethodById(service, url.getId());
-                if (method != null) {
-                    String mName = method.getName();
-                    Class<?> clazz = service.getClazz();
-                    for (java.lang.reflect.Method item : clazz.getDeclaredMethods()) {
-                        if (item.getName().equals(mName)) {
-                            execMethod(item, context, callBack, jsonObject, method.getDatas());
-                            break;
-                        }
-                    }
-                }
+            Service service = findServiceByUrl(url.getUrl());
+            if (service == null)
+                throw new EventBusException("EventBus Call Method, but not find Service by url[" + url.getUrl() + "]");
+            Method method = findMethodById(service, url.getId());
+            if (method == null) {
+                throw new EventBusException("EventBus Call Method, but not find Service.Method by id[" + url.getId() + "] from " + service);
+            }
+            String mName = method.getName();
+            Class<?> clazz = service.getClazz();
+            List<Method.Data> dataList = method.getDataList();
+
+            List<Object> params = new ArrayList<>();
+            java.lang.reflect.Method execMethod = findExecMethod(clazz, mName, context, callBack, jsonObject, dataList, params);
+            if (execMethod == null) {
+                throw new EventBusException("EventBus Call Method, but not find ExecMethod by name and paramList[" + method.getName() + "] from " + service);
+            }
+
+            switch (params.size()) {
+                case 0:
+                    execMethod.invoke(null);
+                    break;
+                case 1:
+                    execMethod.invoke(null, params.get(0));
+                    break;
+                case 2:
+                    execMethod.invoke(null, params.get(0), params.get(1));
+                    break;
+                case 3:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2));
+                    break;
+                case 4:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3));
+                    break;
+                case 5:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4));
+                    break;
+                case 6:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4), params.get(5));
+                    break;
+                case 7:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4), params.get(5), params.get(6));
+                    break;
+                case 8:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4), params.get(5), params.get(6), params.get(7));
+                    break;
+                case 9:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4), params.get(5), params.get(6), params.get(7), params.get(8));
+                    break;
+                case 10:
+                    execMethod.invoke(null, params.get(0), params.get(1), params.get(2), params.get(3), params.get(4), params.get(5), params.get(6), params.get(7), params.get(8), params.get(10));
+                    break;
+                default:
+                    throw new EventBusException("we will very sorry, the method has more 10 params, but you translate " + params.size() + " params for " + execMethod.getName());
             }
         } catch (Exception e) {
-            Log.e(EventBus.TAG, e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public void call(EUrl url, JsonObject params) {
+        this.call(null, url, params, null);
+    }
+
+    public void call(EUrl url, JsonObject params, OnMethodCallBack callBack) {
+        this.call(null, url, params, callBack);
     }
 
     public void call(Context context, EUrl url, JsonObject params) {
@@ -354,127 +464,150 @@ public class EventBus {
 
     public void open(Context context, EUrl url, JsonObject jsonObject) {
         try {
-            if (url != null) {
-                Service service = findServiceByUrl(url.getUrl());
-                Page page = findPageById(service, url.getId());
-                if (page != null) {
-                    Intent intent = new Intent(context, service.getClazz());
-                    Bundle bundle = getBundleByPage(page, jsonObject);
-                    if (bundle != null) {
-                        intent.putExtras(bundle);
-                    }
-                    if (context instanceof Activity && page.getRequestCode() > 0) {
-                        ((Activity) context).startActivityForResult(intent, page.getRequestCode());
-                    } else {
-                        context.startActivity(intent);
+            Service service = findServiceByUrl(url.getUrl());
+            if (service == null)
+                throw new EventBusException("EventBus Open Page, but  not find Service by url[" + url.getUrl() + "]");
+            Page page = findPageById(service, url.getId());
+            if (page == null) {
+                throw new EventBusException("EventBus Open Page, but not find Service.Page by id[" + url.getId() + "] from " + service);
+            }
+            if (jsonObject == null) {
+                for (Page.Bundle item : page.getBundleList()) {
+                    if (item.getNull() == false) {
+                        throw new EventBusException("Page[" + page + "], the id[" + item.getId() + "] has null value to give " + item.getKey());
                     }
                 }
             }
+
+            Intent intent = new Intent(context, service.getClazz());
+            Bundle bundle = getBundleByPage(page, jsonObject);
+            if (bundle != null) {
+                intent.putExtras(bundle);
+            }
+            if (context instanceof Activity && page.getRequestCode() > 0) {
+                ((Activity) context).startActivityForResult(intent, page.getRequestCode());
+            } else {
+                context.startActivity(intent);
+            }
         } catch (Exception e) {
-            Log.e(EventBus.TAG, e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private void execMethod(java.lang.reflect.Method method, Context context, OnMethodCallBack callBack, JsonObject json, List<Method.Data> datas) throws Exception {
-        int step = 2;
-        Annotation[][] annotations = method.getParameterAnnotations();
-        switch (annotations.length - step) {
-            case 0:
-                method.invoke(null,
-                        context, callBack);
-                break;
-            case 1:
-                method.invoke(null,
-                        context, callBack,
-                        getValue(json, annotations[step + 0], datas));
-                break;
-            case 2:
-                method.invoke(null,
-                        context, callBack,
-                        getValue(json, annotations[step + 0], datas),
-                        getValue(json, annotations[step + 1], datas));
-                break;
-            case 3:
-                method.invoke(null,
-                        context, callBack,
-                        getValue(json, annotations[step + 0], datas),
-                        getValue(json, annotations[step + 1], datas),
-                        getValue(json, annotations[step + 2], datas));
-                break;
-            case 4:
-                method.invoke(null,
-                        context, callBack,
-                        getValue(json, annotations[step + 0], datas),
-                        getValue(json, annotations[step + 1], datas),
-                        getValue(json, annotations[step + 2], datas),
-                        getValue(json, annotations[step + 3], datas));
-                break;
-            case 5:
-                method.invoke(null,
-                        context, callBack,
-                        getValue(json, annotations[step + 0], datas),
-                        getValue(json, annotations[step + 1], datas),
-                        getValue(json, annotations[step + 2], datas),
-                        getValue(json, annotations[step + 3], datas),
-                        getValue(json, annotations[step + 4], datas));
-                break;
-        }
-    }
-
-    private Object getValue(JsonObject json, Annotation[] items, List<Method.Data> datas) {
-        if (json == null || datas.size() == 0) return null;
-        Params ann = null;
-        for (Annotation item : items) {
-            if (item instanceof Params) {
-                ann = (Params) item;
-                break;
-            }
-        }
-        if (ann != null) {
-            for (Method.Data data : datas) {
-                if (data.getKey().equalsIgnoreCase(ann.value())) {
-                    String id = data.getId();
-                    Class<?> clazz = data.getType();
-
-                    JsonElement value = json.get(id);
-                    if (!value.isJsonNull()) {
-                        if (clazz == Boolean.class) {
-                            return value.getAsBoolean();
-                        } else if (clazz == Integer.class) {
-                            return value.getAsInt();
-                        } else if (clazz == Long.class) {
-                            return value.getAsLong();
-                        } else if (clazz == Float.class) {
-                            return value.getAsFloat();
-                        } else if (clazz == Double.class) {
-                            return value.getAsDouble();
-                        } else if (clazz == String.class) {
-                            return value.getAsString();
-                        } else if (clazz == Byte.class) {
-                            return value.getAsByte();
-                        } else if (clazz == char.class) {
-                            return value.getAsCharacter();
+    private java.lang.reflect.Method findExecMethod(Class<?> clazz, String name, Context context, OnMethodCallBack callBack, JsonObject json, List<Method.Data> dataList, List<Object> outParams) {
+        List<java.lang.reflect.Method> like = null;
+        while (clazz != null) {
+            java.lang.reflect.Method[] methods = clazz.getDeclaredMethods();
+            for (java.lang.reflect.Method method : methods) {
+                if (method.getName().equals(name)) {//优先匹配方法名称
+                    outParams.clear();
+                    int paramsCount = 0;//加过注解的参数个数
+                    boolean isSuccess = true;//默认认为声明的服务方法中的参数都可以找到
+                    //查找注解参数，未加Params注解的参数只能为Context或者OnMethodCallBack
+                    Annotation[][] annotations = method.getParameterAnnotations();
+                    Class<?>[] params = method.getParameterTypes();
+                    for (int i = 0; annotations != null && i < annotations.length; i++) {
+                        Params p = getParamsAnnotation(annotations[i]);
+                        if (p == null) {
+                            if (Context.class.isAssignableFrom(params[i])) {
+                                outParams.add(context);
+                            } else if (OnMethodCallBack.class.isAssignableFrom(params[i])) {
+                                outParams.add(callBack);
+                            } else {
+                                isSuccess = false;
+                                break;
+                            }
                         } else {
-                            return new Gson().fromJson(value, clazz);
+                            boolean add = false;
+                            for (Method.Data data : dataList) {
+                                if (p.value().equalsIgnoreCase(data.getKey())) {
+                                    add = true;
+                                    paramsCount++;
+                                    outParams.add(getValue(data, json));
+                                    break;
+                                }
+                            }
+                            if (!add) {
+                                isSuccess = false;
+                                break;
+                            }
                         }
                     }
-                    break;
+                    //找到方法，并且找到的方法中加Params注解修饰的参数个数要和xml文件中声明的个数相等，下一版本，这个校验工作放到注册服务时就进行
+                    if (isSuccess) {
+                        if (paramsCount == dataList.size()) {
+                            return method;
+                        }
+                        like = new ArrayList<>();
+                        like.add(method);
+                    }
                 }
+            }
+            clazz = clazz.getSuperclass();
+        }
+        if (like != null) {
+            throw new EventBusException("EventBus Call Method, but not find ExecMethod because method params count and xml define params count is not same，please modify under method " + like);
+        }
+        return null;
+    }
+
+    private Params getParamsAnnotation(Annotation[] as) {
+        for (int i = 0; as != null && i < as.length; i++) {
+            if (as[i] instanceof Params) {
+                return (Params) as[i];
+            }
+        }
+        return null;
+    }
+
+    private Object getValue(Method.Data data, JsonObject json) {
+        if (data == null) return null;
+
+        String id = data.getId();
+        Class<?> clazz = data.getType();
+        boolean isNull = data.getNull();
+
+        JsonElement value = json == null ? new JsonNull() : json.get(id);
+        if (!isNull && value.isJsonNull())
+            throw new EventBusException("Method.Data[" + data + "], the id[" + id + "] has null value to give " + data.getType());
+
+        if (!value.isJsonNull()) {
+            if (clazz == Boolean.class) {
+                return value.getAsBoolean();
+            } else if (clazz == Integer.class) {
+                return value.getAsInt();
+            } else if (clazz == Long.class) {
+                return value.getAsLong();
+            } else if (clazz == Float.class) {
+                return value.getAsFloat();
+            } else if (clazz == Double.class) {
+                return value.getAsDouble();
+            } else if (clazz == String.class) {
+                return value.getAsString();
+            } else if (clazz == Byte.class) {
+                return value.getAsByte();
+            } else if (clazz == char.class) {
+                return value.getAsCharacter();
+            } else {
+                return new Gson().fromJson(value, clazz);
             }
         }
         return null;
     }
 
     private Bundle getBundleByPage(Page page, JsonObject json) throws Exception {
-        if (page != null && json != null && page.getBundles().size() > 0) {
+        if (page != null && json != null && page.getBundleList().size() > 0) {
             Bundle bundle = new Bundle();
-            for (Page.Bundle item : page.getBundles()) {
+            for (Page.Bundle item : page.getBundleList()) {
                 String id = item.getId();
                 String key = item.getKey();
                 Class<? extends Serializable> clazz = item.getType();
+                boolean isNull = item.getNull();
 
                 JsonElement value = json.get(id);
+                if (!isNull && value.isJsonNull())
+                    throw new EventBusException("Page.Bundle[" + item + "], the id[" + id + "] has null value to give " + key);
+
                 if (!value.isJsonNull()) {
                     if (clazz == Boolean.class) {
                         bundle.putBoolean(key, value.getAsBoolean());
@@ -513,7 +646,7 @@ public class EventBus {
         return false;
     }
 
-    public Service findServiceByUrl(String url) {
+    private Service findServiceByUrl(String url) {
         if (url != null) {
             for (Service item : serviceList) {
                 if (url.equalsIgnoreCase(item.getUrl())) {
@@ -524,7 +657,7 @@ public class EventBus {
         return null;
     }
 
-    public Method findMethodById(Service service, String id) {
+    private Method findMethodById(Service service, String id) {
         if (service != null && id != null) {
             for (Method item : service.getMethods()) {
                 if (id.equalsIgnoreCase(item.getId())) {
@@ -535,7 +668,7 @@ public class EventBus {
         return null;
     }
 
-    public Page findPageById(Service service, String id) {
+    private Page findPageById(Service service, String id) {
         if (service != null && id != null) {
             for (Page item : service.getPages()) {
                 if (id.equalsIgnoreCase(item.getId())) {

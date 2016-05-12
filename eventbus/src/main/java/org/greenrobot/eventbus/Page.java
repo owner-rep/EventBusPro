@@ -10,12 +10,12 @@ import java.util.List;
 public class Page {
     private String id;
     private Integer requestCode;
-    private List<Bundle> bundles;
+    private List<Bundle> bundleList;
 
     public Page(String id, Integer requestCode) {
         this.id = id;
         this.requestCode = requestCode;
-        bundles = new ArrayList<>();
+        bundleList = new ArrayList<>();
     }
 
     public String getId() {
@@ -26,8 +26,14 @@ public class Page {
         return requestCode;
     }
 
-    public List<Bundle> getBundles() {
-        return bundles;
+    public List<Bundle> getBundleList() {
+        return bundleList;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null) return false;
+        return toString().equals(o.toString());
     }
 
     @Override
@@ -35,7 +41,7 @@ public class Page {
         return "Page{" +
                 "id='" + id + '\'' +
                 ", requestCode=" + requestCode +
-                ", bundles=" + bundles +
+                ", bundleList=" + bundleList +
                 '}';
     }
 
@@ -43,11 +49,13 @@ public class Page {
         private String id;
         private String key;
         private Class<? extends Serializable> type;
+        private Boolean isNull;
 
-        public Bundle(String id, String key, Class<? extends Serializable> type) {
+        public Bundle(String id, String key, Class<? extends Serializable> type, Boolean isNull) {
             this.id = id;
             this.key = key;
             this.type = type;
+            this.isNull = isNull;
         }
 
         public String getId() {
@@ -56,6 +64,10 @@ public class Page {
 
         public String getKey() {
             return key;
+        }
+
+        public Boolean getNull() {
+            return isNull;
         }
 
         public Class<? extends Serializable> getType() {
@@ -68,6 +80,7 @@ public class Page {
                     "id='" + id + '\'' +
                     ", key='" + key + '\'' +
                     ", type=" + type +
+                    ", isNull=" + isNull +
                     '}';
         }
     }

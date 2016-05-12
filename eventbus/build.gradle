@@ -13,6 +13,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            consumerProguardFile 'proguard-rules.pro'
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -20,4 +21,14 @@ android {
 
 dependencies {
     compile 'com.google.code.gson:gson:2.6.2'
+}
+
+
+apply from: './upload.gradle'//注意路径问题，此处路径跟上面的publish.gradle存放位置有关
+private configure(def pom) {
+    pom.packaging = 'aar'
+    pom.name = "com.android.eventbus"
+    pom.groupId = "com.android.eventbus"
+    pom.artifactId = "eventbus"
+    pom.version = "1.0.0"
 }

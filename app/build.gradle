@@ -11,9 +11,21 @@ android {
         versionCode 1
         versionName "1.0"
     }
+
+    signingConfigs {
+        sign {
+            keyAlias 'glen'
+            keyPassword '123456'
+            storeFile file('key_store.jks')
+            storePassword '123456'
+            //sha1:EE:52:A0:85:4E:63:21:50:83:17:9A:64:97:9C:EB:6F:43:F0:5D:51
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            signingConfig signingConfigs.sign
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

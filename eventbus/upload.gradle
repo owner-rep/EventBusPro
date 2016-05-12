@@ -1,0 +1,19 @@
+apply plugin: 'maven'
+
+uploadArchives {
+    repositories.mavenDeployer {
+        repository(url: "http://nexus.uddream.cn/content/repositories/android/") {
+            authentication(userName: "deployment", password: "deployment")
+        }
+        configure(pom)
+    }
+}
+
+task androidSourcesJar(type: Jar) {
+    classifier = 'sources'
+    from android.sourceSets.main.java.srcDirs
+}
+
+artifacts {
+    archives androidSourcesJar
+}

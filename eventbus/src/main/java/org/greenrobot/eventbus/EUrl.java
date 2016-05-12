@@ -21,4 +21,12 @@ public class EUrl implements Serializable {
     public String getId() {
         return id;
     }
+
+    @Override
+    public String toString() {
+        return "EUrl{" +
+                "url='" + url + '\'' +
+                ", id='" + id + '\'' +
+                '}';
+    }
 }

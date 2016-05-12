@@ -17,8 +17,8 @@ public class TestActivity extends AppCompatActivity {
         if (getIntent() != null) {
             Bundle bundle = getIntent().getExtras();
             if (bundle != null) {
-                Log.d("bundle url", bundle.getString("url2"));
-                Log.d("bundle content", bundle.getString("content2"));
+                Log.e("bundle url", bundle.getString("url2"));
+                Log.e("bundle content", bundle.getString("content2"));
             }
         }
     }

@@ -36,6 +36,12 @@ public class Service {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (o == null) return false;
+        return toString().equals(o.toString());
+    }
+
+    @Override
     public String toString() {
         return "Service{" +
                 "url='" + url + '\'' +
