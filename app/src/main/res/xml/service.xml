@@ -4,6 +4,7 @@
         <method id="login" name="startLogin">
             <data id="id" key="userId" type="java.lang.String" isNull="true"/>
             <data id="type" key="loginType" type="java.lang.Integer" />
+            <data id="model" key="m" type="com.uddream.glen.test.Model2" />
         </method>
     </service>
 

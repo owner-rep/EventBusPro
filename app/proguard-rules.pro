@@ -15,3 +15,9 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+-keep public class com.uddream.glen.test.Model1{
+    <fields>;
+}
+-keep public class com.uddream.glen.test.Model2{
+    <fields>;
+}

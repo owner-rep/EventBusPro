@@ -52,7 +52,7 @@ final class HandlerPoster extends Handler {
         boolean rescheduled = false;
         try {
             long started = SystemClock.uptimeMillis();
-            while (true) {
+            for (; ; ) {
                 PendingPost pendingPost = queue.poll();
                 if (pendingPost == null) {
                     synchronized (this) {

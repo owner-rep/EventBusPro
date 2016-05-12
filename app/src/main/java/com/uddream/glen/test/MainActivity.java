@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import org.greenrobot.eventbus.EUrl;
@@ -32,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onDestroy();
     }
 
-    @Subscribe(url = "test", priority = 1, threadMode = ThreadMode.BACKGROUND)
+    @Subscribe(url = "test", priority = 1, threadMode = ThreadMode.MAIN)
     public void onReceive(JsonObject receiver) {
         Log.e("onReceive", receiver.toString() + "ui thread: " + (Looper.getMainLooper() == Looper.myLooper()));
     }
@@ -42,7 +43,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()) {
             case R.id.post:
                 if (EventBus.getDefault().hasSubscriberForEvent("test")) {
-                    EventBus.getDefault().post("test", new JsonObject());
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            EventBus.getDefault().post("test", new JsonObject());
+                        }
+                    }).start();
                 }
                 break;
             case R.id.open: {
@@ -54,6 +60,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             break;
             case R.id.method: {
                 JsonObject params = new JsonObject();
+                params.add("model", new Gson().toJsonTree(new Model1("glen", "123456")));
                 params.addProperty("id", "123");
                 params.addProperty("type", 456);
                 EventBus.getDefault().call(new EUrl("method", "login"), params, new OnMethodCallBack() {
