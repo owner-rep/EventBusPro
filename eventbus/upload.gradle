@@ -2,7 +2,7 @@ apply plugin: 'maven'
 
 uploadArchives {
     repositories.mavenDeployer {
-        repository(url: "http://nexus.uddream.cn/content/repositories/android/") {
+        repository(url: "http://nexus.uddream.cn/android/") {
             authentication(userName: "deployment", password: "deployment")
         }
         configure(pom)
